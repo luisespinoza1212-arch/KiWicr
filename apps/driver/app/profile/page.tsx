@@ -317,7 +317,7 @@ export default function Profile() {
     }
   };
 
-  /** Avatar emoji (funciona sin Cloudinary): se guarda como photoUrl. */
+  /** Avatar emoji (funciona sin storage configurado): se guarda como photoUrl. */
   const pickEmoji = async (emoji: string) => {
     setError(null);
     try {

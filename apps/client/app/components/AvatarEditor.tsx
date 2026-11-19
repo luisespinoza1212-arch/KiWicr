@@ -15,7 +15,7 @@ interface AvatarEditorProps {
 
 /**
  * Avatar del cliente (opcional): subir foto o elegir emoji.
- * La foto usa Cloudinary si está configurado; el emoji siempre funciona.
+ * La foto usa Supabase Storage si está configurado; el emoji siempre funciona.
  */
 export function AvatarEditor({ avatarUrl, onChange }: AvatarEditorProps) {
   const [open, setOpen] = useState(false);
@@ -79,7 +79,7 @@ export function AvatarEditor({ avatarUrl, onChange }: AvatarEditorProps) {
         className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-kiwi-100 dark:bg-kiwi-400/10 overflow-hidden"
       >
         {isHttpUrl(avatarUrl || '') ? (
-          // NOTE: <img> intencional — avatar dinámico de Cloudinary.
+          // NOTE: <img> intencional — avatar dinámico del storage.
           <img src={avatarUrl as string} alt="Tu foto" className="h-14 w-14 object-cover" />
         ) : isEmojiImage(avatarUrl || '') ? (
           <span className="text-3xl leading-none">{avatarUrl}</span>

@@ -138,8 +138,8 @@ export function formatRating(value: unknown, fallback = '5.0'): string {
 }
 
 /**
- * True si el valor es una URL http(s) — imagen subida a storage (Cloudinary,
- * S3/R2). Type-guard: permite `isHttpUrl(x) ? <img src={x}>` sin casts.
+ * True si el valor es una URL http(s) — imagen subida a storage (Supabase Storage,
+ * Cloudinary, S3/R2). Type-guard: permite `isHttpUrl(x) ? <img src={x}>` sin casts.
  */
 export function isHttpUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;

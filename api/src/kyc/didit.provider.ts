@@ -4,14 +4,18 @@ import { Injectable, Logger } from '@nestjs/common';
 /**
  * Didit hosted KYC (documento + liveness + face match).
  *
- * - `WORKFLOW_ID` es config por sesión, NO secreto ni env var: va en el body
- *   de cada create-session (ver docs Didit "Free KYC").
+ * - `WORKFLOW_ID` es config por sesión, NO secreto: va en el body de cada
+ *   create-session (ver docs Didit "Free KYC"). Pertenece a UNA cuenta Didit,
+ *   así que se toma de `DIDIT_WORKFLOW_ID` (para cambiar de cuenta sin tocar
+ *   código) y solo si falta se usa el workflow histórico.
  * - La API key vive solo en el servidor (header x-api-key), jamás al browser.
  * - Base: https://verification.didit.me (todo /v3/...).
  */
 
 export const DIDIT_API_BASE = 'https://verification.didit.me';
-export const DIDIT_KYC_WORKFLOW_ID = 'd077de1e-0153-44b3-8d29-bd0f76e86b43';
+const LEGACY_DIDIT_KYC_WORKFLOW_ID = 'd077de1e-0153-44b3-8d29-bd0f76e86b43';
+export const DIDIT_KYC_WORKFLOW_ID =
+  (process.env.DIDIT_WORKFLOW_ID || '').trim() || LEGACY_DIDIT_KYC_WORKFLOW_ID;
 
 export interface DiditSession {
   session_id: string;

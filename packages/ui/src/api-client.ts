@@ -1120,7 +1120,7 @@ class ApiClient {
   /**
    * Sube la imagen de un producto (multipart). Devuelve { url } https lista
    * para <img>. El backend valida magic bytes + tamaño; sin credenciales de
-   * Cloudinary responde 503 — el form muestra el aviso y el picker de emoji
+   * Supabase Storage responde 503 — el form muestra el aviso y el picker de emoji
    * sigue siendo el fallback.
    */
   async uploadMenuImage(file: File): Promise<{ url: string }> {
@@ -1203,7 +1203,7 @@ class ApiClient {
     }
   }
 
-  /** Si la subida de imágenes está configurada (Cloudinary). */
+  /** Si la subida de imágenes está configurada (Supabase Storage). */
   async getImageUploadStatus(): Promise<{ enabled: boolean }> {
     return this.request<{ enabled: boolean }>('/menu/my/image-status');
   }
@@ -1341,7 +1341,7 @@ class ApiClient {
     }
   }
 
-  /** Si la subida de foto de perfil está configurada (Cloudinary). */
+  /** Si la subida de foto de perfil está configurada (Supabase Storage). */
   async getDriverPhotoUploadStatus(): Promise<{ enabled: boolean }> {
     return this.request<{ enabled: boolean }>('/drivers/me/photo-status');
   }
@@ -1409,7 +1409,7 @@ class ApiClient {
     }
   }
 
-  /** Si la subida de logo del comercio está configurada (Cloudinary). */
+  /** Si la subida de logo del comercio está configurada (Supabase Storage). */
   async getMerchantLogoUploadStatus(): Promise<{ enabled: boolean }> {
     return this.request<{ enabled: boolean }>('/merchants/me/logo-status');
   }
@@ -1453,7 +1453,7 @@ class ApiClient {
     }
   }
 
-  /** Si la subida de avatar del cliente está configurada (Cloudinary). */
+  /** Si la subida de avatar del cliente está configurada (Supabase Storage). */
   async getCustomerAvatarUploadStatus(): Promise<{ enabled: boolean }> {
     return this.request<{ enabled: boolean }>('/customers/me/avatar-status');
   }

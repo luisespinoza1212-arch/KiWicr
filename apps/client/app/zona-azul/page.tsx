@@ -106,7 +106,7 @@ export default function ZonaAzulPage() {
                 >
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-kiwi-100 text-2xl dark:bg-kiwi-400/10">
                     {typeof item.image === 'string' && /^https?:\/\//.test(item.image) ? (
-                      // NOTE: <img> intencional — imagen dinámica (Cloudinary).
+                      // NOTE: <img> intencional — imagen dinámica (storage).
                       <img src={item.image} alt={item.name} className="h-14 w-14 object-cover" />
                     ) : typeof item.image === 'string' && item.image.length <= 3 ? (
                       item.image

@@ -3,9 +3,9 @@
 /**
  * Fails when tracked files reference dead infrastructure hosts.
  *
- * The project once planned to run on Railway and Supabase. That setup was
- * abandoned — production now runs on Render (API + Postgres) and Vercel
- * (frontends). Any reference to the dead hosts is a bug waiting to happen
+ * The project once planned to run on Railway. That setup was abandoned —
+ * the API runs on Render, the database and image storage on Supabase, and the
+ * frontends on Vercel. Any reference to the dead hosts is a bug waiting to happen
  * (docs, env examples, fallbacks, deploy scripts), so CI fails.
  *
  * - ERROR (exit 1): a dead host appears in a tracked file.
@@ -44,7 +44,6 @@ const hostPatterns = [
   { host: 'kiwi.app', re: /\bkiwi\.app\b/gi }, // whole domain never registered (emails scrubbed first)
   { host: 'railway.app', re: /\brailway\.app\b/gi },
   { host: 'railway (generic)', re: /\brailway\b/gi },
-  { host: 'supabase', re: /\bsupabase\b/gi },
   { host: 'neon.tech', re: /\bneon\.tech\b/gi },
 ];
 
@@ -104,8 +103,8 @@ if (violations.length) {
   console.error(`\n❌ ${violations.length} dead-host reference(s) found:\n`);
   for (const v of violations) console.error(`   ${v.file}:${v.line} [${v.host}] ${v.text}`);
   console.error(
-    `\nThese hosts belong to the abandoned Railway/Supabase setup.\n` +
-      `Production runs on Render (API/DB) and Vercel (frontends).\n` +
+    `\nThese hosts belong to the abandoned Railway setup (or a never-registered domain).\n` +
+      `Production runs on Render (API), Supabase (DB + Storage) and Vercel (frontends).\n` +
       `Update the reference to the real host, or remove it.`,
   );
   process.exit(1);

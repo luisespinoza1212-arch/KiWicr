@@ -7,28 +7,41 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { randomUUID } from 'node:crypto';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// Sin esModuleInterop: `import x from` compila a `x.default` (undefined) para
+// módulos CommonJS `export =`. Se usa `import = require` a propósito.
+import sharp = require('sharp');
+import heicConvert = require('heic-convert');
 
 /**
- * Subida REAL de imágenes de producto.
+ * Subida REAL de imágenes (productos, evidencias, perfiles, logos).
  *
- * - Cloudinary via CLOUDINARY_URL (cloudinary://key:secret@cloud). Gratis en el
- *   plan free, transforma/cosecha URLs https listas para <img>.
+ * - Supabase Storage vía SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, en el
+ *   bucket SUPABASE_STORAGE_BUCKET (default `kiwi`, debe ser PÚBLICO para que
+ *   la URL sirva directo en <img>). La service role key vive solo en el
+ *   servidor: jamás al browser.
+ * - La API normaliza cada imagen ANTES de subirla: cuadrado 512×512 cover en
+ *   webp (lo que antes hacía el eager de Cloudinary). El client pinta
+ *   thumbnails de 80px y el detalle de 512: una sola versión liviana sirve ambos.
+ *   HEIC (alta eficiencia Samsung/iPhone) se convierte primero con
+ *   heic-convert, porque el sharp precompilado no decodifica HEVC.
  * - Gracious degradation: sin credenciales el endpoint responde 503 con un
  *   mensaje claro en vez de 500 críptico — la app sigue funcionando con emojis.
  *
  * Validación estricta ANTES de tocar el proveedor (el binario jamás se
  * parsea como JSON — Multer usa memoryStorage y límite en bytes):
  * - Solo image/jpeg|png|webp|gif|heic. Los "magic bytes" se verifican, no se
- *   confía en el filename ni en el content-type que manda el cliente. HEIC
- *   (modo alta eficiencia de Samsung/iPhone) lo ingiere Cloudinary y el
- *   eager con fetch_format auto lo entrega como webp visible en todos lados.
- * - Máx 5 MB (límite free de Cloudinary).
+ *   confía en el filename ni en el content-type que manda el cliente.
+ * - Máx 5 MB.
  * - Extensiones: deshabilitadas — un .php renombrado a .jpg es exactamente
- *   lo que esto bloquea.
+ *   lo que esto bloquea. Además, al re-codificar a webp, lo que se guarda es
+ *   SIEMPRE una imagen generada por nosotros, nunca el binario original.
  */
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const OUTPUT_SIZE = 512;
+const DEFAULT_BUCKET = 'kiwi';
 
 const HEIC_BRANDS = new Set([
   'heic',
@@ -71,26 +84,25 @@ const MAGIC_BYTES: Array<{ mime: string; test: (b: Buffer) => boolean }> = [
 @Injectable()
 export class ImageUploadService {
   private readonly logger = new Logger(ImageUploadService.name);
-  private configured: boolean;
+  private readonly client: SupabaseClient | null;
+  private readonly bucket: string;
 
   constructor(private config: ConfigService) {
-    const url = this.config.get<string>('CLOUDINARY_URL');
-    this.configured = typeof url === 'string' && url.startsWith('cloudinary://');
-    if (this.configured) {
-      // cloudinary.config() parsea CLOUDINARY_URL del entorno por sí solo.
-      cloudinary.config({ secure: true });
-    }
+    const url = (this.config.get<string>('SUPABASE_URL') || '').trim();
+    const key = (this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+    this.bucket =
+      (this.config.get<string>('SUPABASE_STORAGE_BUCKET') || '').trim() || DEFAULT_BUCKET;
+    this.client =
+      url.startsWith('https://') && key.length > 0
+        ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+        : null;
   }
 
   isConfigured(): boolean {
-    return this.configured;
+    return this.client !== null;
   }
 
-  /**
-   * Valida y sube. Devuelve la URL https entregable a <img>.
-   * Transformación eager: cuadrado 512px cover + webp — el client pinta
-   * thumbnails de 80px y el detalle de 512: una sola versión liviana sirve ambos.
-   */
+  /** Valida y sube la foto de producto (carpeta `kiwi/products`). */
   async uploadProductImage(file: {
     buffer: Buffer;
     size: number;
@@ -102,7 +114,7 @@ export class ImageUploadService {
   /**
    * Valida y sube la foto de evidencia del pedido (carpeta `kiwi/proofs`).
    * Misma validación estricta que `uploadProductImage` (magic bytes, 5MB,
-   * eager 512, errores 400/503); solo cambia la carpeta de destino.
+   * 512 webp, errores 400/503); solo cambia la carpeta de destino.
    */
   async uploadProofImage(file: {
     buffer: Buffer;
@@ -148,12 +160,12 @@ export class ImageUploadService {
     return this.uploadToFolder(file, 'kiwi/merchants');
   }
 
-  /** Núcleo compartido: validación estricta + subida a la carpeta indicada. */
+  /** Núcleo compartido: validación estricta + normalización + subida. */
   private async uploadToFolder(
     file: { buffer: Buffer; size: number; originalname?: string },
     folder: string,
   ): Promise<{ url: string }> {
-    if (!this.configured) {
+    if (!this.isConfigured()) {
       throw new ServiceUnavailableException(
         'Subida de imágenes no configurada. Contacta al administrador.',
       );
@@ -172,35 +184,51 @@ export class ImageUploadService {
       throw new BadRequestException('Formato no soportado. Usa JPG, PNG, WEBP, GIF o HEIC.');
     }
 
+    // Normalizar: si los bytes dicen "imagen" pero no se puede decodificar,
+    // es un archivo dañado o disfrazado → 400 (culpa del cliente, no nuestra).
+    let webp: Buffer;
     try {
-      const result = await new Promise<UploadApiResponse>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder,
-            resource_type: 'image',
-            // Eager: thumbnail webp 512×512 cover. Sirve listas y detalle.
-            eager: [
-              { width: 512, height: 512, crop: 'fill', fetch_format: 'auto', quality: 'auto' },
-            ],
-            eager_async: false,
-          },
-          (error, res) =>
-            error || !res ? reject(error ?? new Error('no response')) : resolve(res),
-        );
-        stream.end(file.buffer);
-      });
+      webp = await this.normalize(file.buffer, match.mime);
+    } catch (err: any) {
+      this.logger.warn(`Imagen ilegible (${match.mime}): ${err?.message ?? err}`);
+      throw new BadRequestException('No se pudo leer la imagen. Prueba con otra foto.');
+    }
 
-      // eager[0].secure_url ya trae /c_fill,w_512,h_512/ en la URL.
-      const url = result.eager?.[0]?.secure_url || result.secure_url;
+    try {
+      const url = await this.store(`${folder}/${randomUUID()}.webp`, webp);
       if (!url || !url.startsWith('https://')) {
-        throw new Error('Cloudinary devolvió una URL inesperada');
+        throw new Error('Supabase devolvió una URL inesperada');
       }
       return { url };
     } catch (err: any) {
-      // Errores de validación que levantamos arriba NO se tragan: ya son 4xx.
-      if (err?.status && err.status >= 400 && err.status < 500) throw err;
-      this.logger.error(`Cloudinary upload falló: ${err?.message ?? err}`);
+      this.logger.error(`Supabase upload falló: ${err?.message ?? err}`);
       throw new ServiceUnavailableException('No se pudo subir la imagen. Intenta de nuevo.');
     }
+  }
+
+  /** Decodifica (HEIC vía heic-convert) y entrega un webp 512×512 cover. */
+  async normalize(buffer: Buffer, mime: string): Promise<Buffer> {
+    let input = buffer;
+    if (mime === 'image/heic') {
+      const jpeg = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
+      input = Buffer.from(jpeg as ArrayBuffer);
+    }
+    return sharp(input, { animated: false })
+      .rotate() // respeta la orientación EXIF de fotos de celular
+      .resize(OUTPUT_SIZE, OUTPUT_SIZE, { fit: 'cover' })
+      .webp({ quality: 80 })
+      .toBuffer();
+  }
+
+  /** Sube el objeto al bucket y devuelve su URL pública. */
+  protected async store(path: string, body: Buffer): Promise<string> {
+    const storage = this.client!.storage.from(this.bucket);
+    const { error } = await storage.upload(path, body, {
+      contentType: 'image/webp',
+      cacheControl: '31536000',
+      upsert: false,
+    });
+    if (error) throw error;
+    return storage.getPublicUrl(path).data.publicUrl;
   }
 }

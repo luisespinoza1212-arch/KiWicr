@@ -53,7 +53,7 @@ function buildSecurityHeaders({ allowGeolocation = false, apiOrigin } = {}) {
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com",
     // Mapas Leaflet: mosaicos OSM + CARTO (respaldo). Sin esto el mapa queda
     // en azul si alguna vez se aplica esta política en vez de la de vercel.json.
-    "img-src 'self' data: blob: https://res.cloudinary.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com",
+    "img-src 'self' data: blob: https://*.supabase.co https://res.cloudinary.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com",
     `font-src 'self' ${GOOGLE_FONTS}`,
     `connect-src 'self' ${API} ${WS}`,
     "object-src 'none'",

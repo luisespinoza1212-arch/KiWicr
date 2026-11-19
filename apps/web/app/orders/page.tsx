@@ -139,7 +139,7 @@ export default function OrdersPage() {
   // Error de foto junto al botón (el global queda arriba del listado y en el
   // celular no se ve). Se limpia al reintentar o al lograr la subida.
   const [photoError, setPhotoError] = useState<{ orderId: string; message: string } | null>(null);
-  // Config del servidor (Cloudinary): null = aún cargando o sin permiso.
+  // Config del servidor (Supabase Storage): null = aún cargando o sin permiso.
   const [uploadEnabled, setUploadEnabled] = useState<boolean | null>(null);
   // Reintento/cancelación de pedidos sin repartidor.
   const [actingId, setActingId] = useState<string | null>(null);

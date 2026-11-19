@@ -133,7 +133,7 @@ export function MerchantNav({ isConnected, unreadCount = 0, businessName }: Merc
                   </span>
                   <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-kiwi-gradient text-white text-sm font-semibold ring-2 ring-white shadow-sm dark:ring-surface-800">
                     {isHttpUrl(logoUrl) ? (
-                      // NOTE: <img> intencional — logo dinámico de Cloudinary.
+                      // NOTE: <img> intencional — logo dinámico del storage.
                       <img
                         src={logoUrl}
                         alt={businessName || t('webnav.businessLogoAlt')}

@@ -351,7 +351,7 @@ function MerchantQuickSetup({
             className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-kiwi-100 dark:bg-kiwi-900/50 text-2xl font-bold text-kiwi-700 dark:text-kiwi-300 disabled:opacity-60"
           >
             {isHttp ? (
-              // NOTE: <img> intencional — logo dinámico de Cloudinary.
+              // NOTE: <img> intencional — logo dinámico del storage.
               <img src={logo as string} alt={name || 'Logo'} className="h-16 w-16 object-cover" />
             ) : isEmoji ? (
               <span className="text-4xl leading-none">{logo}</span>
@@ -1073,7 +1073,7 @@ export default function UsersPage() {
                   <div className="flex items-center gap-4 mb-6">
                     {selectedUser.merchantProfile?.logoUrl &&
                     /^https:\/\//i.test(selectedUser.merchantProfile.logoUrl) ? (
-                      // NOTE: <img> intencional — logo dinámico de Cloudinary.
+                      // NOTE: <img> intencional — logo dinámico del storage.
                       <img
                         src={selectedUser.merchantProfile.logoUrl}
                         alt={displayName(selectedUser)}

@@ -2,13 +2,14 @@
 
 ## 🏗️ Arquitectura de Producción
 
-| Servicio                  | Plataforma        | URL                                 |
-| ------------------------- | ----------------- | ----------------------------------- |
-| 🗄️ API (NestJS)           | Render            | https://kiwi-api-fe54.onrender.com  |
-| 🍃 Dashboard Comerciantes | Vercel            | https://negocios.kiwicr.express     |
-| 📱 Menú QR Clientes       | Vercel            | https://www.kiwicr.express          |
-| 🛵 App Repartidores       | Vercel            | https://repartidores.kiwicr.express |
-| 🗃️ Base de datos          | Render PostgreSQL | (interno, vía `DATABASE_URL`)       |
+| Servicio                  | Plataforma        | URL                                  |
+| ------------------------- | ----------------- | ------------------------------------ |
+| 🗄️ API (NestJS)           | Render            | https://kiwi-api-fe54.onrender.com   |
+| 🍃 Dashboard Comerciantes | Vercel            | https://negocios.kiwicr.express      |
+| 📱 Menú QR Clientes       | Vercel            | https://www.kiwicr.express           |
+| 🛵 App Repartidores       | Vercel            | https://repartidores.kiwicr.express  |
+| 🗃️ Base de datos          | Supabase Postgres | (vía `DATABASE_URL`, Session pooler) |
+| 🖼️ Imágenes               | Supabase Storage  | bucket público `kiwi`                |
 
 ---
 
@@ -33,11 +34,14 @@ Normalmente no hace falta: Render redespliega solo con cada push a `main`. Para 
 
 ---
 
-## 🗄️ Base de datos (Render PostgreSQL)
+## 🗄️ Base de datos e imágenes (Supabase)
 
-1. **Crear la base** en Render Dashboard → **New → PostgreSQL** (región acorde a `iad1`).
-2. Copiar la **External Database URL** (o la Internal si la API corre en la misma región).
-3. En el servicio de la API → **Environment →** `DATABASE_URL`.
+1. **Crear el proyecto** en supabase.com → **New project** (región `East US` para quedar cerca de Render `iad1`). Guarda la contraseña de la base.
+2. **Base de datos:** Project → **Connect** → **Session pooler** → copiar la URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`). Usa el _Session pooler_ (puerto 5432): funciona con IPv4 desde Render y sirve tanto para la API como para `prisma migrate deploy`. Ponla en la API → **Environment →** `DATABASE_URL`.
+3. **Imágenes:** Storage → **New bucket** → nombre `kiwi`, marcado **Public**.
+4. Project Settings → **API**: copiar **Project URL** → `SUPABASE_URL` y la **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (secreta, solo en el servidor).
+
+> Si la API no conecta y el log dice algo como `unsupported startup parameter: options`, el pooler rechaza el `statement_timeout` que la API agrega a la URL. Pon `DB_STATEMENT_TIMEOUT_MS=off` en Render y fija el timeout en Supabase → SQL Editor: `ALTER ROLE postgres SET statement_timeout = '30s';`
 
 ### Migraciones y seed
 
@@ -61,13 +65,18 @@ DATABASE_URL="postgresql://..." npx prisma migrate deploy
 Configuradas en **Render Dashboard → kiwi-api → Environment**:
 
 ```bash
-DATABASE_URL="postgresql://..."        # Render PostgreSQL
+DATABASE_URL="postgresql://..."        # Supabase (Session pooler, puerto 5432)
 JWT_SECRET="..."                       # secreto fuerte, no compartir
 JWT_ACCESS_EXPIRES_IN="7d"           # sesión del comercio: 1 semana logueado
 JWT_REFRESH_EXPIRES_IN="7d"          # refresh rotativo, ventana deslizante de 7 días
 NODE_ENV="production"
 SEED_DEMO_DATA="true"                  # false para un DB limpio
-CLOUDINARY_URL="cloudinary://KEY:SECRET@CLOUD"  # fotos de menú y evidencia 1+1; sin esto /menu/my/image-status da {enabled:false} y las subidas responden 503
+SUPABASE_URL="https://<ref>.supabase.co"   # fotos (Supabase Storage); sin URL/key /menu/my/image-status da {enabled:false} y las subidas responden 503
+SUPABASE_SERVICE_ROLE_KEY="..."              # secreta, solo servidor
+SUPABASE_STORAGE_BUCKET="kiwi"               # bucket público
+DIDIT_API_KEY="..."                          # KYC (cuenta Didit propia)
+DIDIT_WEBHOOK_SECRET="..."                   # webhook → https://<api>/api/kyc/webhook/didit
+DIDIT_WORKFLOW_ID="..."                      # workflow KYC de esa misma cuenta
 # Integraciones opcionales:
 # SENTRY_DSN, FIREBASE_*, ONVOPAY_API_KEY, ...
 ```

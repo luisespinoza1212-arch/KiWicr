@@ -78,7 +78,7 @@ export class CustomersService {
       if (city) data.citySlug = city.slug;
     }
     // Avatar: URL https (foto subida) o emoji elegido; null lo quita.
-    // Máx 500 chars (una URL de Cloudinary cabe de sobra).
+    // Máx 500 chars (una URL de Supabase Storage cabe de sobra).
     if (dto.avatarUrl !== undefined) {
       if (dto.avatarUrl === null || String(dto.avatarUrl).trim() === '') {
         data.avatarUrl = null;

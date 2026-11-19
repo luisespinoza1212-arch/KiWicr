@@ -778,7 +778,7 @@ export default function MenuManagementPage() {
                     <div className="text-surface-500 dark:text-surface-400">⋮⋮</div>
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-100 dark:bg-surface-700 text-2xl flex-shrink-0">
                       {isHttpUrl(item.image) ? (
-                        // NOTE: <img> intencional — avatares dinámicos de Cloudinary, next/image no aporta aquí
+                        // NOTE: <img> intencional — avatares dinámicos del storage, next/image no aporta aquí
                         <img
                           src={item.image}
                           alt={item.name}
@@ -840,7 +840,7 @@ export default function MenuManagementPage() {
                       {/* Item Image */}
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-surface-100 dark:bg-surface-700 text-3xl flex-shrink-0">
                         {isHttpUrl(item.image) ? (
-                          // NOTE: <img> intencional — avatares dinámicos de Cloudinary, next/image no aporta aquí
+                          // NOTE: <img> intencional — avatares dinámicos del storage, next/image no aporta aquí
                           <img
                             src={item.image}
                             alt={item.name}

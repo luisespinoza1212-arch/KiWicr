@@ -435,7 +435,7 @@ export class MerchantsService {
       extra.category = data.category;
     }
     // Logo: URL https (foto subida) o emoji elegido (funciona sin
-    // Cloudinary). Se valida esquema para no guardar cualquier string que
+    // storage configurado). Se valida esquema para no guardar cualquier string que
     // rompería <img> en la app cliente.
     if (data.logoUrl !== undefined) {
       if (data.logoUrl === null || String(data.logoUrl).trim() === '') {

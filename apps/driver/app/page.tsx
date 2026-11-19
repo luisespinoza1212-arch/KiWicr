@@ -632,7 +632,7 @@ export default function Home() {
               <LanguageSwitcherCompact hideLabelOnMobile />
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-kiwi-gradient text-sm font-semibold text-white ring-2 ring-white dark:ring-surface-800 shadow-sm overflow-hidden">
                 {isHttpUrl((user as any)?.driverProfile?.photoUrl) ? (
-                  // NOTE: <img> intencional — foto dinámica de Cloudinary.
+                  // NOTE: <img> intencional — foto dinámica del storage.
                   <img
                     src={(user as any).driverProfile.photoUrl}
                     alt={t('wdrvauth.home.photoAlt')}

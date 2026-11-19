@@ -50,7 +50,7 @@ export default function AppLayout() {
   const nav = t.wdrvwork.common;
   const { colorScheme, setColorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
-  // Foto del perfil: URL (Cloudinary), emoji o inicial — igual que la PWA.
+  // Foto del perfil: URL (Supabase Storage), emoji o inicial — igual que la PWA.
   const isHttpUrl = (s: string) => /^https?:\/\//i.test(s || '');
   const isEmojiImage = (s: string) => /\p{Extended_Pictographic}/u.test(s || '');
   const photoUrl = (user as any)?.driverProfile?.photoUrl as string | undefined;

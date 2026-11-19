@@ -527,7 +527,7 @@ export default function ClientHome() {
                   <Megaphone className="h-3 w-3" /> {t('wclihome.home.sponsored')}
                 </span>
                 {b.imageUrl ? (
-                  // NOTE: <img> intencional — imágenes dinámicas de Cloudinary (sin dominio fijo).
+                  // NOTE: <img> intencional — imágenes dinámicas del storage (sin dominio fijo).
                   <img
                     src={b.imageUrl}
                     alt={b.title || b.businessName}
@@ -563,7 +563,7 @@ export default function ClientHome() {
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/40 overflow-hidden">
                       {isHttpUrl(tm.logoUrl) ? (
-                        // NOTE: <img> intencional — logos dinámicos de Cloudinary.
+                        // NOTE: <img> intencional — logos dinámicos del storage.
                         <img
                           src={tm.logoUrl}
                           alt={tm.businessName}
@@ -741,7 +741,7 @@ export default function ClientHome() {
                   <div className="flex items-start gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-kiwi-100 text-xl dark:bg-kiwi-400/10 font-display font-bold text-kiwi-700 dark:text-kiwi-300 overflow-hidden">
                       {isHttpUrl(it.logoUrl) ? (
-                        // NOTE: <img> intencional — logos dinámicos de Cloudinary.
+                        // NOTE: <img> intencional — logos dinámicos del storage.
                         <img
                           src={it.logoUrl}
                           alt={it.businessName}

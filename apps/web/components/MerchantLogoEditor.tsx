@@ -14,7 +14,7 @@ interface MerchantLogoEditorProps {
 }
 
 /**
- * Logo del comercio (foto de perfil). Tappable: sube foto a Cloudinary si
+ * Logo del comercio (foto de perfil). Tappable: sube foto a Supabase Storage si
  * está configurado. Se ve en la app cliente (lista y menú).
  */
 export function MerchantLogoEditor({ logoUrl, businessName, onChange }: MerchantLogoEditorProps) {
@@ -91,7 +91,7 @@ export function MerchantLogoEditor({ logoUrl, businessName, onChange }: Merchant
         className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-kiwi-100 dark:bg-kiwi-900/50 text-2xl font-bold text-kiwi-700 dark:text-kiwi-300 overflow-hidden disabled:opacity-60"
       >
         {isHttpUrl(logoUrl || '') ? (
-          // NOTE: <img> intencional — logo dinámico de Cloudinary.
+          // NOTE: <img> intencional — logo dinámico del storage.
           <img
             src={logoUrl as string}
             alt={businessName || 'Logo'}

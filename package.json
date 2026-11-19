@@ -67,5 +67,20 @@
     "@sentry/react": "^10.73.0",
     "framer-motion": "^13.1.1",
     "lucide-react": "^0.400.0"
+  },
+  "allowScripts": {
+    "core-js@3.50.0": true,
+    "prisma@5.22.0": true,
+    "protobufjs@7.6.6": true,
+    "@firebase/util@1.15.3": true,
+    "@nestjs/core@10.4.22": true,
+    "@prisma/engines@5.22.0": true,
+    "@prisma/client@5.22.0": true,
+    "@sentry/node-cpu-profiler@2.4.3": true,
+    "@swc/core@1.16.1": true,
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true,
+    "sharp@0.34.5": true,
+    "sharp@0.35.5": true
   }
 }

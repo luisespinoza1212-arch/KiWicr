@@ -35,7 +35,11 @@ export function buildDatabaseUrl(raw?: string, overrides?: { connectionLimit?: s
     params.set('connect_timeout', process.env.DB_CONNECT_TIMEOUT ?? DEFAULT_CONNECT_TIMEOUT);
   }
   const options = params.get('options') ?? '';
-  if (!/statement_timeout/.test(options)) {
+  // `DB_STATEMENT_TIMEOUT_MS=off`: no mandar el startup param `options` (para
+  // poolers que lo rechacen); el timeout se fija entonces en la base con
+  // `ALTER ROLE ... SET statement_timeout`.
+  const timeoutOff = /^(off|false|none)$/i.test((process.env.DB_STATEMENT_TIMEOUT_MS ?? '').trim());
+  if (!timeoutOff && !/statement_timeout/.test(options)) {
     const ms = process.env.DB_STATEMENT_TIMEOUT_MS ?? DEFAULT_STATEMENT_TIMEOUT_MS;
     params.set(
       'options',

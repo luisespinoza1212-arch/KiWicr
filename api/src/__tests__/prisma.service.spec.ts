@@ -35,6 +35,15 @@ describe('buildDatabaseUrl', () => {
     expect(out.searchParams.get('options')).toContain('statement_timeout=30000');
   });
 
+  it('DB_STATEMENT_TIMEOUT_MS=off no manda `options` (poolers que lo rechazan)', () => {
+    process.env.DB_STATEMENT_TIMEOUT_MS = 'off';
+    const out = new URL(buildDatabaseUrl(BASE));
+    expect(out.searchParams.has('options')).toBe(false);
+    expect(out.searchParams.get('connection_limit')).toBe('10');
+    const kept = new URL(buildDatabaseUrl(`${BASE}?options=-c%20search_path%3Dpublic`));
+    expect(kept.searchParams.get('options')).toBe('-c search_path=public');
+  });
+
   it('lo explícito en la URL manda; el env solo rellena lo ausente', () => {
     process.env.DB_POOL_LIMIT = '5';
     const explicit = new URL(buildDatabaseUrl(`${BASE}?connection_limit=3`));

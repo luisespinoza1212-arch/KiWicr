@@ -1719,7 +1719,7 @@ export default function MenuPage() {
                     <div className="flex gap-4">
                       <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-kiwi-50 dark:bg-surface-700 text-3xl flex-shrink-0 overflow-hidden">
                         {isHttpUrl(item.image) ? (
-                          // NOTE: <img> intencional — avatares dinámicos de Cloudinary, next/image no aporta aquí
+                          // NOTE: <img> intencional — avatares dinámicos del storage, next/image no aporta aquí
                           <img
                             src={item.image}
                             alt={item.name}
@@ -1852,7 +1852,7 @@ export default function MenuPage() {
                     <div className="flex gap-4">
                       <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-orange-50 dark:bg-surface-700 text-3xl flex-shrink-0 overflow-hidden">
                         {isHttpUrl(item.image) ? (
-                          // NOTE: <img> intencional — avatares dinámicos de Cloudinary
+                          // NOTE: <img> intencional — avatares dinámicos del storage
                           <img
                             src={item.image}
                             alt={item.name}
@@ -2152,7 +2152,7 @@ export default function MenuPage() {
                       <div key={item.lineId} className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           {isHttpUrl(item.image) ? (
-                            // NOTE: <img> intencional — avatares dinámicos de Cloudinary
+                            // NOTE: <img> intencional — avatares dinámicos del storage
                             <img
                               src={item.image}
                               alt={item.name}

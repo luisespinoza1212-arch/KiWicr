@@ -80,7 +80,7 @@ node scripts/e2e-prod-flow.mjs http://localhost:4000
 
 # Chequeos que aplica CI en cada push
 npm run check:client-bundle    # process/import.meta.env en bundles cliente
-npm run check:dead-hosts       # referencias a hosts muertos (Railway/Supabase/dominio nunca registrado)
+npm run check:dead-hosts       # referencias a hosts muertos (Railway/dominio nunca registrado)
 npm run check:prisma-schema    # invariante: un único schema.prisma (api/prisma)
 ```
 
@@ -96,7 +96,7 @@ Estas reglas existen porque cada una rompió un build o producción real:
 2. **Declara en el `package.json` de tu paquete todo lo que importas** — aunque npm lo hoistee y funcione local, el build de Vercel falla. Mantén además versiones alineadas de `lucide-react` y `@types/react` entre apps.
 3. **El esquema canónico es `api/prisma/schema.prisma`** — es el único; no crees copias del schema en otros paquetes (la copia de `packages/db` se eliminó por haber derivado).
 4. **No edites `apps/driver/public/sw.js`** — es un artefacto regenerado por next-pwa.
-5. **Nada de hosts muertos** (Railway, Supabase, el dominio propio nunca registrado) en código, docs o `.env.example` — hay CI que lo bloquea. Las direcciones `@` en seeds/tests están bien (el check excluye emails).
+5. **Nada de hosts muertos** (Railway, el dominio propio nunca registrado) en código, docs o `.env.example` — hay CI que lo bloquea. Las direcciones `@` en seeds/tests están bien (el check excluye emails).
 6. **`useSearchParams()` exige un límite `<Suspense>`** en Next App Router (rompe el prerender si falta).
 7. **Lint NO corre durante `next build`** en los tres apps — corre `npm run lint` antes de pushear.
 8. **El gateway de sockets es null-safe** — puede invocarse desde flujos REST sin ningún cliente conectado; no le agregues suposiciones de conexión.

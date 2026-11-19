@@ -233,8 +233,8 @@ async function main() {
     body: { status: 'picked_up', proofPhotoUrl: 'https://e2e-test.local/pickup.jpg' },
   });
   ok('driver cannot forge merchant pickup evidence (403)', forged.status === 403, `HTTP ${forged.status}`);
-  // Flujo real con archivos (requiere CLOUDINARY_URL en el API): la foto
-  // pickup la sube el comercio y la delivery el driver. Sin Cloudinary el
+  // Flujo real con archivos (requiere SUPABASE_URL en el API): la foto
+  // pickup la sube el comercio y la delivery el driver. Sin Supabase Storage el
   // entorno no puede probar subidas: se registra SKIP (no fallo de código).
   const upPickup = await reqMultipart(`/orders/${orderId}/proof-photo`, {
     token: merchantToken,
@@ -243,7 +243,7 @@ async function main() {
   const proofsAvailable =
     [200, 201].includes(upPickup.status);
   if (upPickup.status === 503) {
-    ok('merchant uploads pickup proof (file) — SKIPPED, API sin CLOUDINARY_URL', true,
+    ok('merchant uploads pickup proof (file) — SKIPPED, API sin SUPABASE_URL', true,
       'HTTP 503: flujo con archivos no aplicable en este entorno');
   } else {
     ok('merchant uploads pickup proof (file)', proofsAvailable, `HTTP ${upPickup.status}`);
@@ -256,7 +256,7 @@ async function main() {
       body: { status: 'picked_up' },
     });
     ok('picked_up without proof still rejected (400)', gated.status === 400, `HTTP ${gated.status}`);
-    console.log('⏭️  Walk de entrega omitido: configuran CLOUDINARY_URL en el API para el flujo completo.');
+    console.log('⏭️  Walk de entrega omitido: configuran SUPABASE_URL en el API para el flujo completo.');
   } else {
     await walk('picked_up');
     await walk('in_transit_to_delivery');
@@ -265,7 +265,7 @@ async function main() {
       fields: { kind: 'delivery' },
     });
     ok('driver uploads delivery proof (file)', [200, 201].includes(upDelivery.status),
-      `HTTP ${upDelivery.status}${upDelivery.status === 503 ? ' (API sin CLOUDINARY_URL)' : ''}`);
+      `HTTP ${upDelivery.status}${upDelivery.status === 503 ? ' (API sin SUPABASE_URL)' : ''}`);
     await walk('delivered');
 
     const delivered = await req('GET', `/orders/${orderId}`, { token: merchantToken });
