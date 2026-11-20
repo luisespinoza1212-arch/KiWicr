@@ -38,7 +38,7 @@ Normalmente no hace falta: Render redespliega solo con cada push a `main`. Para 
 
 1. **Crear el proyecto** en supabase.com → **New project** (región `East US` para quedar cerca de Render `iad1`). Guarda la contraseña de la base.
 2. **Base de datos:** Project → **Connect** → **Session pooler** → copiar la URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`). Usa el _Session pooler_ (puerto 5432): funciona con IPv4 desde Render y sirve tanto para la API como para `prisma migrate deploy`. Ponla en la API → **Environment →** `DATABASE_URL`.
-3. **Imágenes:** Storage → **New bucket** → nombre `kiwi`, marcado **Public**.
+3. **Imágenes:** Storage → **New bucket** → nombre `kiwi`, marcado **Public**. Los documentos KYC van aparte, al bucket **privado** `kyc-private` (lo crea la API la primera vez; si lo creas a mano, **no** lo marques Public).
 4. Project Settings → **API**: copiar **Project URL** → `SUPABASE_URL` y la **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (secreta, solo en el servidor).
 
 > Si la API no conecta y el log dice algo como `unsupported startup parameter: options`, el pooler rechaza el `statement_timeout` que la API agrega a la URL. Pon `DB_STATEMENT_TIMEOUT_MS=off` en Render y fija el timeout en Supabase → SQL Editor: `ALTER ROLE postgres SET statement_timeout = '30s';`
@@ -74,6 +74,7 @@ SEED_DEMO_DATA="true"                  # false para un DB limpio
 SUPABASE_URL="https://<ref>.supabase.co"   # fotos (Supabase Storage); sin URL/key /menu/my/image-status da {enabled:false} y las subidas responden 503
 SUPABASE_SERVICE_ROLE_KEY="..."              # secreta, solo servidor
 SUPABASE_STORAGE_BUCKET="kiwi"               # bucket público
+SUPABASE_KYC_BUCKET="kyc-private"          # documentos KYC: bucket PRIVADO (la API lo crea si falta; nunca público)
 DIDIT_API_KEY="..."                          # KYC (cuenta Didit propia)
 DIDIT_WEBHOOK_SECRET="..."                   # webhook → https://<api>/api/kyc/webhook/didit
 DIDIT_WORKFLOW_ID="..."                      # workflow KYC de esa misma cuenta

@@ -36,6 +36,19 @@ interface KYCVerification {
   };
 }
 
+/** Documentos que puede traer una solicitud: campo → texto y emoji. */
+const DOC_FIELDS = [
+  { field: 'idFrontUrl', label: 'docFront', icon: '🪪' },
+  { field: 'idBackUrl', label: 'docBack', icon: '🪪' },
+  { field: 'selfieUrl', label: 'selfie', icon: '🤳' },
+  { field: 'licenseUrl', label: 'license', icon: '🚗' },
+  { field: 'vehicleRegisterUrl', label: 'vehicleRegister', icon: '📄' },
+  { field: 'insuranceUrl', label: 'insurance', icon: '🛡️' },
+  { field: 'businessLicenseUrl', label: 'patente', icon: '📄' },
+] as const;
+
+type DocField = (typeof DOC_FIELDS)[number]['field'];
+
 interface KYCStats {
   total: number;
   pending: number;
@@ -54,6 +67,43 @@ export default function KYCPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  // Fotos del detalle: links firmados que vencen (10 min). Nunca se usan las
+  // referencias kyc:// de la lista como src.
+  const [docs, setDocs] = useState<Partial<Record<DocField, string | null>> | null>(null);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState(false);
+  const selectedId = selectedKYC?.id;
+
+  const loadDetail = useCallback(async (id: string) => {
+    setDocsLoading(true);
+    setDocsError(false);
+    try {
+      const detail: any = await api.getKycById(id);
+      const signed: Partial<Record<DocField, string | null>> = {};
+      for (const { field } of DOC_FIELDS) signed[field] = detail?.[field] ?? null;
+      setDocs(signed);
+      // El detalle trae los números completos (las listas vienen enmascaradas).
+      setSelectedKYC((prev) =>
+        prev && prev.id === id
+          ? {
+              ...prev,
+              idNumber: detail?.idNumber ?? prev.idNumber,
+              licenseNumber: detail?.licenseNumber ?? prev.licenseNumber,
+              taxId: detail?.taxId ?? prev.taxId,
+            }
+          : prev,
+      );
+    } catch {
+      setDocsError(true);
+    } finally {
+      setDocsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setDocs(null);
+    if (selectedId) loadDetail(selectedId);
+  }, [selectedId, loadDetail]);
 
   const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     pending: {
@@ -517,58 +567,67 @@ export default function KYCPage() {
                   </div>
                 </div>
 
-                {/* Document Images */}
+                {/* Document Images (links firmados temporales) */}
                 <div>
-                  <h4 className="font-semibold text-surface-800 dark:text-surface-100 mb-4">
-                    {t('webadmin1.akyc.docsTitle')}
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedKYC.idFrontUrl && (
-                      <div className="rounded-xl bg-surface-100 dark:bg-surface-700 p-4">
-                        <div className="aspect-video bg-surface-200 dark:bg-surface-600 rounded-lg flex items-center justify-center mb-2">
-                          <span className="text-4xl">🪪</span>
-                        </div>
-                        <p className="text-sm text-surface-600 dark:text-surface-400">
-                          {t('webadmin1.akyc.docFront')}
-                        </p>
-                      </div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h4 className="font-semibold text-surface-800 dark:text-surface-100">
+                      {t('webadmin1.akyc.docsTitle')}
+                    </h4>
+                    {docs && !docsLoading && (
+                      <button
+                        type="button"
+                        onClick={() => selectedId && loadDetail(selectedId)}
+                        className="text-xs font-medium text-kiwi-700 hover:underline"
+                      >
+                        {t('webadmin1.akyc.reloadDocs')}
+                      </button>
                     )}
-                    {selectedKYC.idBackUrl && (
-                      <div className="rounded-xl bg-surface-100 dark:bg-surface-700 p-4">
-                        <div className="aspect-video bg-surface-200 dark:bg-surface-600 rounded-lg flex items-center justify-center mb-2">
-                          <span className="text-4xl">🪪</span>
-                        </div>
-                        <p className="text-sm text-surface-600 dark:text-surface-400">
-                          {t('webadmin1.akyc.docBack')}
-                        </p>
-                      </div>
-                    )}
-                    {selectedKYC.selfieUrl && (
-                      <div className="rounded-xl bg-surface-100 dark:bg-surface-700 p-4">
-                        <div className="aspect-video bg-surface-200 dark:bg-surface-600 rounded-lg flex items-center justify-center mb-2">
-                          <span className="text-4xl">🤳</span>
-                        </div>
-                        <p className="text-sm text-surface-600 dark:text-surface-400">
-                          {t('webadmin1.akyc.selfie')}
-                        </p>
-                      </div>
-                    )}
-                    {selectedKYC.licenseUrl && (
-                      <div className="rounded-xl bg-surface-100 dark:bg-surface-700 p-4">
-                        <div className="aspect-video bg-surface-200 dark:bg-surface-600 rounded-lg flex items-center justify-center mb-2">
-                          <span className="text-4xl">
-                            <Car className="h-10 w-10" />
-                          </span>
-                        </div>
-                        <p className="text-sm text-surface-600 dark:text-surface-400">
-                          {t('webadmin1.akyc.license')}
-                        </p>
-                      </div>
-                    )}
-                    {!selectedKYC.idFrontUrl &&
-                      !selectedKYC.idBackUrl &&
-                      !selectedKYC.selfieUrl &&
-                      !selectedKYC.licenseUrl && (
+                  </div>
+                  {docsLoading && !docs ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {[0, 1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="aspect-video rounded-xl" />
+                      ))}
+                    </div>
+                  ) : docsError ? (
+                    <div className="rounded-xl bg-red-50 p-4 text-center text-sm text-red-600 dark:bg-red-900/30">
+                      {t('webadmin1.akyc.docsError')}{' '}
+                      <button
+                        type="button"
+                        onClick={() => selectedId && loadDetail(selectedId)}
+                        className="font-semibold underline"
+                      >
+                        {t('webadmin1.akyc.reloadDocs')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      {DOC_FIELDS.filter(({ field }) => docs?.[field]).map(
+                        ({ field, label, icon }) => (
+                          <a
+                            key={field}
+                            href={docs![field]!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={t('webadmin1.akyc.openFull')}
+                            className="group rounded-xl bg-surface-100 p-3 dark:bg-surface-700"
+                          >
+                            <div className="mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-surface-200 dark:bg-surface-600">
+                              {/* NOTE: <img> intencional — link firmado temporal del storage privado. */}
+                              <img
+                                src={docs![field]!}
+                                alt={t(`webadmin1.akyc.${label}`)}
+                                className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                                onError={() => setDocsError(true)}
+                              />
+                            </div>
+                            <p className="text-sm text-surface-600 dark:text-surface-400">
+                              <span aria-hidden>{icon}</span> {t(`webadmin1.akyc.${label}`)}
+                            </p>
+                          </a>
+                        ),
+                      )}
+                      {docs && DOC_FIELDS.every(({ field }) => !docs[field]) && (
                         <div className="col-span-2 text-center py-8">
                           <span className="text-4xl mb-2 block">📭</span>
                           <p className="text-surface-500 dark:text-surface-400">
@@ -576,7 +635,8 @@ export default function KYCPage() {
                           </p>
                         </div>
                       )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* License Info (for drivers) */}
@@ -609,7 +669,7 @@ export default function KYCPage() {
                 )}
 
                 {/* Business Info (for merchants) */}
-                {selectedKYC.user.role === 'merchant' && selectedKYC.businessLicenseUrl && (
+                {selectedKYC.user.role === 'merchant' && selectedKYC.taxId && (
                   <div>
                     <h4 className="font-semibold text-surface-800 dark:text-surface-100 mb-4">
                       {t('webadmin1.akyc.bizDocsTitle')}
@@ -625,14 +685,6 @@ export default function KYCPage() {
                           </p>
                         </div>
                       )}
-                      <div className="rounded-xl bg-surface-100 dark:bg-surface-700 p-4">
-                        <div className="aspect-video bg-surface-200 dark:bg-surface-600 rounded-lg flex items-center justify-center mb-2">
-                          <span className="text-4xl">📄</span>
-                        </div>
-                        <p className="text-sm text-surface-600 dark:text-surface-400">
-                          {t('webadmin1.akyc.patente')}
-                        </p>
-                      </div>
                     </div>
                   </div>
                 )}

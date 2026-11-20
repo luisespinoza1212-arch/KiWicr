@@ -4,11 +4,17 @@ import { KYCService } from '../kyc/kyc.service';
 import { DiditProvider } from '../kyc/didit.provider';
 import { PrismaService } from '../prisma/prisma.service';
 import { FieldCipher } from '../security/field-cipher';
+import { KycDocumentStorage } from '../kyc/kyc-document-storage.service';
+
+// Referencias válidas del bucket privado (formato <userId>/<tipo>/<uuid>.webp).
+const UUID = '0b6f3c1e-9a2d-4c5e-8f7a-1234567890ab';
+const ref = (userId: string, type: string) => `kyc://${userId}/${type}/${UUID}.webp`;
 
 describe('KYCService — cifrado de números de identidad en reposo', () => {
   let service: KYCService;
   let prisma: any;
   let cipher: FieldCipher;
+  let documents: any;
 
   beforeEach(async () => {
     process.env.KYC_FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 5).toString('base64');
@@ -21,6 +27,10 @@ describe('KYCService — cifrado de números de identidad en reposo', () => {
         create: jest.fn(),
       },
     };
+    documents = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      signedUrl: jest.fn(async (r: string) => `https://signed.example/${r.slice(6)}?token=t`),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -28,6 +38,7 @@ describe('KYCService — cifrado de números de identidad en reposo', () => {
         DiditProvider,
         { provide: PrismaService, useValue: prisma },
         FieldCipher,
+        { provide: KycDocumentStorage, useValue: documents },
       ],
     }).compile();
 
@@ -43,12 +54,14 @@ describe('KYCService — cifrado de números de identidad en reposo', () => {
     await service.submitDocuments('u-1', {
       idNumber: '209880065',
       idType: 'cedula',
-      idFrontUrl: 'https://cdn.example.com/id.jpg',
-      selfieUrl: 'https://cdn.example.com/selfie.jpg',
-      businessLicenseUrl: 'https://cdn.example.com/license.jpg',
+      idFrontUrl: ref('u-1', 'idFront'),
+      selfieUrl: ref('u-1', 'selfie'),
+      licenseUrl: ref('u-1', 'license'),
     });
 
     const stored = prisma.kYCVerification.create.mock.calls[0][0].data;
+    expect(stored.status).toBe('documents_submitted');
+    expect(stored.idFrontUrl).toBe(ref('u-1', 'idFront'));
     expect(stored.idNumber).toMatch(/^v1:/);
     expect(stored.idNumber).not.toContain('209880065');
     expect(stored.idType).toBe('cedula'); // campo no sensible queda intacto
@@ -61,15 +74,75 @@ describe('KYCService — cifrado de números de identidad en reposo', () => {
     expect(prisma.kYCVerification.create).not.toHaveBeenCalled();
   });
 
-  it('rechaza URLs truthy no-https, aunque el campo venga relleno', async () => {
+  it('rechaza URLs externas (aunque sean https): solo refs kyc:// del bucket privado', async () => {
     await expect(
       service.submitDocuments('u-1', {
         idFrontUrl: 'javascript:alert(1)',
-        selfieUrl: 'http://insecure.example.com/selfie.jpg',
-        businessLicenseUrl: 'https://cdn.example.com/license.jpg',
+        selfieUrl: 'https://cdn.example.com/selfie.jpg',
+        licenseUrl: ref('u-1', 'license'),
       }),
     ).rejects.toThrow('Faltan las fotos');
     expect(prisma.kYCVerification.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza documentos de OTRO usuario (no se pueden adjuntar fotos ajenas)', async () => {
+    await expect(
+      service.submitDocuments('u-1', {
+        idFrontUrl: ref('u-2', 'idFront'),
+        selfieUrl: ref('u-1', 'selfie'),
+        licenseUrl: ref('u-1', 'license'),
+      }),
+    ).rejects.toThrow('Faltan las fotos');
+    expect(prisma.kYCVerification.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza refs con path manipulado (../, tipo inventado)', async () => {
+    await expect(
+      service.submitDocuments('u-1', {
+        idFrontUrl: `kyc://u-1/../u-2/idFront/${UUID}.webp`,
+        selfieUrl: `kyc://u-1/passport/${UUID}.webp`,
+        licenseUrl: ref('u-1', 'license'),
+      }),
+    ).rejects.toThrow('Faltan las fotos');
+  });
+
+  it('exige la foto de la licencia', async () => {
+    await expect(
+      service.submitDocuments('u-1', {
+        idFrontUrl: ref('u-1', 'idFront'),
+        selfieUrl: ref('u-1', 'selfie'),
+      }),
+    ).rejects.toThrow('licencia');
+  });
+
+  it('documentos opcionales inválidos se descartan sin bloquear el envío', async () => {
+    prisma.kYCVerification.findUnique.mockResolvedValue(null);
+    prisma.kYCVerification.create.mockImplementation(async ({ data }) => data);
+
+    await service.submitDocuments('u-1', {
+      idFrontUrl: ref('u-1', 'idFront'),
+      selfieUrl: ref('u-1', 'selfie'),
+      licenseUrl: ref('u-1', 'license'),
+      insuranceUrl: 'https://evil.example.com/x.png',
+    });
+
+    const stored = prisma.kYCVerification.create.mock.calls[0][0].data;
+    expect(stored.insuranceUrl).toBeUndefined();
+  });
+
+  it('reenvío tras rechazo vuelve a documents_submitted y limpia el motivo', async () => {
+    prisma.kYCVerification.findUnique.mockResolvedValue({ id: 'v-1', status: 'rejected' });
+    prisma.kYCVerification.update.mockImplementation(async ({ data }) => data);
+
+    await service.submitDocuments('u-1', {
+      idFrontUrl: ref('u-1', 'idFront'),
+      selfieUrl: ref('u-1', 'selfie'),
+      licenseUrl: ref('u-1', 'license'),
+    });
+
+    const data = prisma.kYCVerification.update.mock.calls[0][0].data;
+    expect(data.status).toBe('documents_submitted');
+    expect(data.rejectionReason).toBeNull();
   });
 
   it('getVerificationByUserId (dueño) recibe el número enmascarado por defecto', async () => {
@@ -88,6 +161,92 @@ describe('KYCService — cifrado de números de identidad en reposo', () => {
 
     const row = await service.getVerificationById('v-1');
     expect(row.idNumber).toBe('209880065');
+  });
+
+  it('detalle admin cambia cada ref por un link firmado temporal', async () => {
+    prisma.kYCVerification.findUnique.mockResolvedValue({
+      id: 'v-1',
+      idFrontUrl: ref('u-1', 'idFront'),
+      selfieUrl: ref('u-1', 'selfie'),
+      licenseUrl: null,
+    });
+
+    const row = await service.getVerificationById('v-1');
+    expect(row.idFrontUrl).toBe(`https://signed.example/u-1/idFront/${UUID}.webp?token=t`);
+    expect(row.selfieUrl).toContain('/u-1/selfie/');
+    expect(row.licenseUrl).toBeNull();
+    expect(documents.signedUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it('listas admin NO firman (las fotos solo se piden al abrir el detalle)', async () => {
+    prisma.kYCVerification.findMany.mockResolvedValue([{ idFrontUrl: ref('u-1', 'idFront') }]);
+    await service.getAllVerifications();
+    expect(documents.signedUrl).not.toHaveBeenCalled();
+  });
+
+  describe('aprobar / rechazar', () => {
+    let tx: any;
+    beforeEach(() => {
+      tx = {
+        kYCVerification: { update: jest.fn(async ({ data }) => ({ id: 'v-1', ...data })) },
+        driverProfile: { update: jest.fn() },
+        merchantProfile: { update: jest.fn() },
+        notification: { create: jest.fn() },
+      };
+      prisma.$transaction = jest.fn(async (fn: any) => fn(tx));
+    });
+
+    it('aprobar marca el perfil del repartidor como approved y le avisa', async () => {
+      prisma.kYCVerification.findUnique.mockResolvedValue({
+        id: 'v-1',
+        userId: 'u-1',
+        status: 'documents_submitted',
+        user: { role: 'driver' },
+      });
+
+      const out = await service.approveVerification('v-1', 'admin-1');
+
+      expect(out.status).toBe('approved');
+      expect(tx.kYCVerification.update.mock.calls[0][0].data.verifiedBy).toBe('admin-1');
+      expect(tx.driverProfile.update).toHaveBeenCalledWith({
+        where: { userId: 'u-1' },
+        data: expect.objectContaining({ kycStatus: 'approved' }),
+      });
+      expect(tx.notification.create.mock.calls[0][0].data.type).toBe('kyc_approved');
+    });
+
+    it('rechazar guarda el motivo, marca el perfil y avisa con el motivo', async () => {
+      prisma.kYCVerification.findUnique.mockResolvedValue({
+        id: 'v-1',
+        userId: 'u-1',
+        status: 'documents_submitted',
+        user: { role: 'driver' },
+      });
+
+      await service.rejectVerification('v-1', 'admin-1', 'Foto borrosa');
+
+      expect(tx.kYCVerification.update.mock.calls[0][0].data).toEqual(
+        expect.objectContaining({ status: 'rejected', rejectionReason: 'Foto borrosa' }),
+      );
+      expect(tx.driverProfile.update).toHaveBeenCalledWith({
+        where: { userId: 'u-1' },
+        data: { kycStatus: 'rejected' },
+      });
+      const notif = tx.notification.create.mock.calls[0][0].data;
+      expect(notif.type).toBe('kyc_rejected');
+      expect(notif.body).toContain('Foto borrosa');
+    });
+
+    it('no se puede aprobar dos veces', async () => {
+      prisma.kYCVerification.findUnique.mockResolvedValue({
+        id: 'v-1',
+        status: 'approved',
+        user: { role: 'driver' },
+      });
+      await expect(service.approveVerification('v-1', 'admin-1')).rejects.toThrow(
+        'ya está aprobada',
+      );
+    });
   });
 
   it('getVerificationByUserId por defecto enmascara (solo últimos 4)', async () => {

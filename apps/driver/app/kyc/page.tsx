@@ -13,16 +13,53 @@ import {
   api,
   useTranslations,
   LanguageSwitcherCompact,
+  downscalePhoto,
+  events,
 } from '@kiwi/ui';
+
+type KycStatus =
+  | 'not_submitted'
+  | 'pending'
+  | 'documents_submitted'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
+
+type DocType = 'idFront' | 'idBack' | 'selfie' | 'license' | 'vehicleRegister' | 'insurance';
+
+/** Documentos del formulario → tipo que espera POST /kyc/documents. */
+const DOC_FIELDS: Array<[string, DocType]> = [
+  ['idFront', 'idFront'],
+  ['idBack', 'idBack'],
+  ['selfie', 'selfie'],
+  ['license', 'license'],
+  ['vehicleRegister', 'vehicleRegister'],
+  ['insurance', 'insurance'],
+];
+
+/** Campo de /kyc/submit donde va la referencia de cada documento. */
+const SUBMIT_FIELD: Record<DocType, string> = {
+  idFront: 'idFrontUrl',
+  idBack: 'idBackUrl',
+  selfie: 'selfieUrl',
+  license: 'licenseUrl',
+  vehicleRegister: 'vehicleRegisterUrl',
+  insurance: 'insuranceUrl',
+};
 
 export default function DriverKYCPage() {
   const { t } = useTranslations();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [kycStatus, setKycStatus] = useState<
-    'pending' | 'documents_submitted' | 'under_review' | 'approved' | 'rejected'
-  >('pending');
+  const [kycStatus, setKycStatus] = useState<KycStatus>('pending');
   const [rejectionReason, setRejectionReason] = useState<string | undefined>(undefined);
+  // null = todavía no sabemos (no mostrar nada que pueda fallar).
+  const [diditEnabled, setDiditEnabled] = useState<boolean | null>(null);
+  const [manualEnabled, setManualEnabled] = useState<boolean | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -39,9 +76,57 @@ export default function DriverKYCPage() {
       .then((s) => {
         if (s?.status) setKycStatus(s.status);
         if (s?.rejectionReason) setRejectionReason(s.rejectionReason);
+        setDiditEnabled(s?.diditEnabled === true);
+        setManualEnabled(s?.manualEnabled === true);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setDiditEnabled(false);
+        setManualEnabled(false);
+      });
   }, [user]);
+
+  /**
+   * Sube cada foto al almacenamiento privado (una por una, con progreso) y
+   * luego envía la solicitud con las referencias. Si algo falla, el
+   * formulario queda como estaba para reintentar.
+   */
+  const handleSubmit = async (form: any) => {
+    const docs = DOC_FIELDS.filter(([field]) => form?.[field] instanceof File);
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const refs: Record<string, string> = {};
+      for (let i = 0; i < docs.length; i++) {
+        const [field, type] = docs[i];
+        setProgress({ current: i + 1, total: docs.length });
+        const file = await downscalePhoto(form[field] as File, 2000);
+        const { ref } = await api.uploadKycDocument(file, type);
+        refs[SUBMIT_FIELD[type]] = ref;
+      }
+      setProgress(null);
+      const res = await api.submitKycDocuments({
+        idType: form.idType,
+        idNumber: form.idNumber || undefined,
+        licenseNumber: form.licenseNumber || undefined,
+        licenseExpiry: form.licenseExpiry || undefined,
+        ...refs,
+      });
+      setKycStatus((res?.status as KycStatus) ?? 'documents_submitted');
+      setRejectionReason(undefined);
+      events.kyc.documentsSubmitted('driver');
+    } catch (err: any) {
+      setSubmitError(err?.message || t('wdrvauth.kyc.submitError'));
+    } finally {
+      setProgress(null);
+      setSubmitting(false);
+    }
+  };
+
+  const showForm =
+    kycStatus === 'not_submitted' ||
+    kycStatus === 'pending' ||
+    kycStatus === 'rejected' ||
+    kycStatus === 'expired';
 
   return (
     <div className="min-h-[100dvh] bg-bg-light">
@@ -151,7 +236,8 @@ export default function DriverKYCPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          {kycStatus !== 'approved' && kycStatus !== 'under_review' && (
+          {/* Didit (opcional): solo si el servidor tiene la llave configurada. */}
+          {diditEnabled && showForm && (
             <div className="mb-4 rounded-2xl bg-white p-6 shadow-soft">
               <h3 className="font-display font-semibold text-surface-800 mb-1">
                 {t('wdrvauth.kyc.instantTitle')}
@@ -160,21 +246,57 @@ export default function DriverKYCPage() {
               <DiditVerifyButton
                 onStatus={(s) => {
                   if (s === 'approved' || s === 'rejected' || s === 'under_review') {
-                    setKycStatus(s as any);
+                    setKycStatus(s as KycStatus);
                   }
                 }}
               />
+              {manualEnabled && (
+                <p className="mt-4 text-center text-xs uppercase tracking-wide text-surface-400">
+                  {t('wdrvauth.kyc.orUpload')}
+                </p>
+              )}
             </div>
           )}
-          {kycStatus !== 'pending' && (
+
+          {showForm && manualEnabled && (
+            <div className="mb-4 rounded-2xl bg-white p-6 shadow-soft">
+              <h3 className="font-display font-semibold text-surface-800 mb-1">
+                {t('wdrvauth.kyc.manualTitle')}
+              </h3>
+              <p className="text-sm text-surface-500">{t('wdrvauth.kyc.manualDesc')}</p>
+            </div>
+          )}
+
+          {showForm && manualEnabled === false && diditEnabled === false && (
+            <div className="mb-4 rounded-2xl bg-gold-50 border border-gold-200 p-6 text-sm text-gold-700">
+              {t('wdrvauth.kyc.manualUnavailable')}
+            </div>
+          )}
+
+          {(!showForm || manualEnabled) && (
             <KYCVerification
               role="driver"
-              statusOnly
-              kycData={{ status: kycStatus, rejectionReason }}
-              onSubmit={() => undefined}
+              statusOnly={!manualEnabled}
+              kycData={{
+                status: kycStatus === 'not_submitted' ? 'pending' : kycStatus,
+                rejectionReason,
+              }}
+              onSubmit={handleSubmit}
+              loading={submitting}
+              loadingLabel={
+                progress
+                  ? t('wdrvauth.kyc.uploading', {
+                      current: progress.current,
+                      total: progress.total,
+                    })
+                  : undefined
+              }
+              submitError={submitError}
               onRefreshStatus={async () => {
-                const r = await api.refreshDiditSession();
-                const s = (r as any)?.status as typeof kycStatus | undefined;
+                // Con Didit se consulta su decisión; en revisión manual basta
+                // con volver a leer el estado.
+                const r = diditEnabled ? await api.refreshDiditSession() : await api.getKycStatus();
+                const s = (r as any)?.status as KycStatus | undefined;
                 if (s) setKycStatus(s);
                 if ((r as any)?.rejectionReason) setRejectionReason((r as any).rejectionReason);
                 return s;

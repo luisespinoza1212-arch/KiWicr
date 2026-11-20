@@ -1,16 +1,31 @@
 {
-  "cli": { "version": ">= 5.0.0" },
+  "cli": {
+    "version": ">= 5.0.0"
+  },
   "build": {
-    "development": { "developmentClient": true, "distribution": "internal" },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
     "preview": {
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.kiwicr.express/api" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.kiwicr.express/api",
+        "EXPO_PUBLIC_DRIVER_WEB_URL": "https://repartidores.kiwicr.express"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.kiwicr.express/api" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.kiwicr.express/api",
+        "EXPO_PUBLIC_DRIVER_WEB_URL": "https://repartidores.kiwicr.express"
+      }
     }
   },
-  "submit": { "production": {} }
+  "submit": {
+    "production": {}
+  }
 }

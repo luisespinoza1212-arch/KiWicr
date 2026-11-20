@@ -235,6 +235,12 @@ export const drvAuthEs = {
     instantDesc: 'Con tu cédula y un selfie, en menos de un minuto.',
     orUpload: 'o subí tus documentos',
     submitError: 'No se pudo enviar. Intentá de nuevo.',
+    manualTitle: 'Subí tus documentos',
+    manualDesc:
+      'Tomá fotos claras, sin reflejos y con el documento completo. Un admin de Kiwi las revisa.',
+    uploading: 'Subiendo {current} de {total}…',
+    manualUnavailable:
+      'La verificación no está disponible en este momento. Escribinos por WhatsApp.',
     faqTitle: '❓ Preguntas frecuentes',
     q1: '¿Por qué necesito verificar mi identidad?',
     a1: 'Pa cuidar a los comercios y a los clientes.',
@@ -477,6 +483,11 @@ export const drvAuthEn = {
     instantDesc: 'With your ID and a selfie, in under a minute.',
     orUpload: 'or upload your documents',
     submitError: 'Could not submit. Try again.',
+    manualTitle: 'Upload your documents',
+    manualDesc:
+      'Take clear photos, without glare and showing the whole document. A Kiwi admin reviews them.',
+    uploading: 'Uploading {current} of {total}…',
+    manualUnavailable: 'Verification is not available right now. Message us on WhatsApp.',
     faqTitle: '❓ Common questions',
     q1: 'Why do I need to verify my identity?',
     a1: 'To keep stores and customers safe.',

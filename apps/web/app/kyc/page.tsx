@@ -16,6 +16,8 @@ export default function MerchantKYCPage() {
     'pending' | 'documents_submitted' | 'under_review' | 'approved' | 'rejected'
   >('pending');
   const [rejectionReason, setRejectionReason] = useState<string | undefined>(undefined);
+  // Didit solo si el servidor tiene la llave; si no, se ofrece contacto.
+  const [diditEnabled, setDiditEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -28,8 +30,9 @@ export default function MerchantKYCPage() {
       .then((s) => {
         if (s?.status) setKycStatus(s.status);
         if (s?.rejectionReason) setRejectionReason(s.rejectionReason);
+        setDiditEnabled(s?.diditEnabled === true);
       })
-      .catch(() => undefined);
+      .catch(() => setDiditEnabled(false));
   }, [user]);
 
   return (
@@ -133,7 +136,15 @@ export default function MerchantKYCPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          {kycStatus !== 'approved' && kycStatus !== 'under_review' && (
+          {diditEnabled === false && kycStatus !== 'approved' && kycStatus !== 'under_review' && (
+            <div className="mb-4 rounded-2xl bg-gold-50 border border-gold-200 p-6 text-sm text-gold-700">
+              {t('webshop2.kycweb.manualContact')}{' '}
+              <a href="https://wa.me/50688888888" className="font-semibold underline">
+                {t('webshop2.kycweb.contactWa')}
+              </a>
+            </div>
+          )}
+          {diditEnabled && kycStatus !== 'approved' && kycStatus !== 'under_review' && (
             <div className="mb-4 rounded-2xl bg-white p-6 shadow-soft">
               <h3 className="font-display font-semibold text-surface-800 mb-1">
                 {t('webshop2.kycweb.instantTitle')}
@@ -155,7 +166,7 @@ export default function MerchantKYCPage() {
               kycData={{ status: kycStatus, rejectionReason }}
               onSubmit={() => undefined}
               onRefreshStatus={async () => {
-                const r = await api.refreshDiditSession();
+                const r = diditEnabled ? await api.refreshDiditSession() : await api.getKycStatus();
                 const s = (r as any)?.status as typeof kycStatus | undefined;
                 if (s) setKycStatus(s);
                 if ((r as any)?.rejectionReason) setRejectionReason((r as any).rejectionReason);

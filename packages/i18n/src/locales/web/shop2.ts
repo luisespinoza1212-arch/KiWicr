@@ -626,6 +626,7 @@ export const shop2Es = {
     a3: 'Sí, usamos encriptación de grado bancario para proteger tu información.',
     needHelp: '¿Ocupás ayuda?',
     contactWa: 'Contactanos por WhatsApp',
+    manualContact: 'Para verificar tu comercio, escribinos y te ayudamos.',
     errSubmit: 'No se pudo enviar. Intentá de nuevo.',
   },
 };
@@ -1250,6 +1251,7 @@ export const shop2En = {
     a3: 'Yes, we use bank-grade encryption to protect your information.',
     needHelp: 'Need help?',
     contactWa: 'Contact us on WhatsApp',
+    manualContact: 'To verify your store, message us and we will help.',
     errSubmit: 'Could not send. Try again.',
   },
 };

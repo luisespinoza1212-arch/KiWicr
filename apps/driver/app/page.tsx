@@ -763,11 +763,11 @@ export default function Home() {
                       ? t('wdrvauth.home.kycBlockedReason', { reason: kycRejection })
                       : '',
                   })
-                : ['under_review', 'submitted'].includes(kycStatus ?? '')
+                : ['under_review', 'documents_submitted', 'submitted'].includes(kycStatus ?? '')
                   ? t('wdrvauth.home.kycBlockedReview')
                   : t('wdrvauth.home.kycBlockedPending')}
             </p>
-            {!['under_review', 'submitted'].includes(kycStatus ?? '') && (
+            {!['under_review', 'documents_submitted', 'submitted'].includes(kycStatus ?? '') && (
               <Link
                 href="/kyc"
                 className="mt-3 inline-block rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white"

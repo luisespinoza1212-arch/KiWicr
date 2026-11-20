@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Francisco Javier Campos Diaz. Todos los derechos reservados.
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { FileUp, FileCheck } from 'lucide-react';
 import { cn } from './utils';
 
@@ -22,6 +22,11 @@ export interface FileDropZoneProps {
   hint?: string;
   icon?: string;
   className?: string;
+  /**
+   * Abre la cámara directo en el celular: 'user' = frontal (selfie),
+   * 'environment' = trasera. Sin valor, el selector normal (cámara o galería).
+   */
+  capture?: 'user' | 'environment';
 }
 
 export function FileDropZone({
@@ -32,8 +37,20 @@ export function FileDropZone({
   hint,
   icon = '📷',
   className,
+  capture,
 }: FileDropZoneProps) {
   const id = useId();
+  // Miniatura de la foto elegida (para que el usuario vea si salió legible).
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!value || !value.type?.startsWith('image/')) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(value);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [value]);
 
   return (
     <div
@@ -47,13 +64,18 @@ export function FileDropZone({
         id={id}
         type="file"
         accept={accept}
+        capture={capture}
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
         aria-label={label}
         className="absolute inset-0 h-full w-full cursor-pointer rounded-xl opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kiwi-600"
       />
       {/* Contenido visual (decorativo: el control real es el input). */}
       <div aria-hidden className="pointer-events-none">
-        <span className="mb-2 block text-3xl">{icon}</span>
+        {preview ? (
+          <img src={preview} alt="" className="mx-auto mb-2 max-h-32 rounded-lg object-contain" />
+        ) : (
+          <span className="mb-2 block text-3xl">{icon}</span>
+        )}
         {value ? (
           <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-kiwi-700 dark:text-kiwi-400">
             <FileCheck className="h-4 w-4" />

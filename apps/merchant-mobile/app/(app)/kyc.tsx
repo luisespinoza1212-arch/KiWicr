@@ -30,6 +30,8 @@ export default function Kyc() {
   const raw = String((data as any)?.status ?? 'pending').toLowerCase();
   const key = STATUS_LABEL[raw] ?? 'pending';
   const done = key === 'approved';
+  // Didit solo si el servidor tiene la llave (si no, el botón daría error).
+  const diditEnabled = (data as any)?.diditEnabled === true;
 
   const start = useMutation({
     mutationFn: () => api.startDidit(),
@@ -47,7 +49,7 @@ export default function Kyc() {
   });
 
   const refresh = useMutation({
-    mutationFn: () => api.refreshDidit(),
+    mutationFn: () => (diditEnabled ? api.refreshDidit() : api.status()),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['kyc', 'status'] });
       void refetch();
@@ -80,7 +82,7 @@ export default function Kyc() {
       </View>
 
       <View style={{ marginTop: 12, gap: 8 }}>
-        {!done && (
+        {!done && diditEnabled && (
           <Button
             label={t.kyc.verifyNow}
             loading={start.isPending}

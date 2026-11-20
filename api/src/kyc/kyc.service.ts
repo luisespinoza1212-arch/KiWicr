@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { FieldCipher } from '../security/field-cipher';
 import { DiditProvider } from './didit.provider';
+import { KycDocumentStorage, isOwnKycRef } from './kyc-document-storage.service';
 import { mapDiditStatus, verifyDiditWebhook } from './didit.webhook';
 
 @Injectable()
@@ -18,10 +19,9 @@ export class KYCService {
   private static readonly ENCRYPTED_FIELDS = ['idNumber', 'licenseNumber', 'taxId'] as const;
 
   /**
-   * Document URL fields: stored as-is and later opened/rendered by the admin
-   * panel, so they get the strictest content restriction — https-only, bounded
-   * length, no data:/javascript: URIs. (Uploads don't exist yet: when a real
-   * storage backend lands, these fields become server-generated URLs only.)
+   * Document fields: hold ONLY server-generated references `kyc://<userId>/...`
+   * to the private Supabase bucket (see KycDocumentStorage). Never a public
+   * URL: the admin gets short-lived signed links in getVerificationById.
    */
   private static readonly URL_FIELDS = [
     'idFrontUrl',
@@ -37,31 +37,47 @@ export class KYCService {
     private prisma: PrismaService,
     private cipher: FieldCipher,
     private didit: DiditProvider,
+    private documents: KycDocumentStorage,
   ) {}
 
-  /** https-only, ≤512 chars, no embedded credentials or non-web schemes. */
-  private static isAllowedDocumentUrl(value: unknown): value is string {
-    if (typeof value !== 'string' || value.length === 0 || value.length > 512) return false;
-    try {
-      const parsed = new URL(value);
-      return parsed.protocol === 'https:' && !parsed.username && !parsed.password;
-    } catch {
-      return false;
-    }
+  /** ¿Hay verificación con Didit (llave configurada)? */
+  isDiditEnabled(): boolean {
+    return this.didit.isConfigured();
+  }
+
+  /** ¿Se pueden subir documentos para la revisión manual? */
+  isManualEnabled(): boolean {
+    return this.documents.isConfigured();
+  }
+
+  /** Sube un documento KYC al bucket privado; devuelve su referencia. */
+  uploadDocument(userId: string, type: unknown, file: any) {
+    return this.documents.upload(userId, type, file);
   }
 
   /**
-   * Sanitize document URLs: anything not passing the check is DROPPED (not
-   * thrown) so a single bad field never blocks a legitimate resubmission of
-   * the rest of the documents.
+   * Sanitize document refs: anything that is not the user's own `kyc://` ref
+   * is DROPPED (not thrown) so a single bad field never blocks a legitimate
+   * resubmission of the rest of the documents.
    */
-  private sanitizeDocumentUrls<T extends Record<string, any>>(data: T): T {
+  private sanitizeDocumentRefs<T extends Record<string, any>>(data: T, userId: string): T {
     const out: any = { ...data };
     for (const field of KYCService.URL_FIELDS) {
-      if (out[field] !== undefined && !KYCService.isAllowedDocumentUrl(out[field])) {
+      if (out[field] !== undefined && !isOwnKycRef(out[field], userId)) {
         delete out[field];
       }
     }
+    return out;
+  }
+
+  /** Cambia cada referencia `kyc://` por un link firmado temporal (admin). */
+  private async signDocumentRefs(row: any): Promise<any> {
+    const out = { ...row };
+    await Promise.all(
+      KYCService.URL_FIELDS.map(async (field) => {
+        if (out[field]) out[field] = await this.documents.signedUrl(out[field]);
+      }),
+    );
     return out;
   }
 
@@ -172,7 +188,7 @@ export class KYCService {
       throw new NotFoundException('Verificación no encontrada');
     }
 
-    return this.decryptIdentityFields(verification, { mask: false });
+    return this.signDocumentRefs(this.decryptIdentityFields(verification, { mask: false }));
   }
 
   async submitDocuments(
@@ -192,19 +208,13 @@ export class KYCService {
       taxId?: string;
     },
   ) {
-    // Un envío sin documentos crea una revisión vacía e imposible de aprobar.
-    // El formulario manual fue retirado; cualquier cliente directo también
-    // debe adjuntar frente + selfie y al menos una licencia.
-    if (
-      !KYCService.isAllowedDocumentUrl(data.idFrontUrl) ||
-      !KYCService.isAllowedDocumentUrl(data.selfieUrl)
-    ) {
+    // Un envío sin documentos crea una revisión vacía e imposible de aprobar:
+    // frente + selfie y al menos una licencia, todas subidas antes con
+    // POST /kyc/documents (referencias `kyc://` del propio usuario).
+    if (!isOwnKycRef(data.idFrontUrl, userId) || !isOwnKycRef(data.selfieUrl, userId)) {
       throw new BadRequestException('Faltan las fotos del documento de identidad o de la selfie');
     }
-    if (
-      !KYCService.isAllowedDocumentUrl(data.licenseUrl) &&
-      !KYCService.isAllowedDocumentUrl(data.businessLicenseUrl)
-    ) {
+    if (!isOwnKycRef(data.licenseUrl, userId) && !isOwnKycRef(data.businessLicenseUrl, userId)) {
       throw new BadRequestException('Falta la foto de la licencia correspondiente');
     }
 
@@ -253,8 +263,8 @@ export class KYCService {
     }
 
     // Identity numbers never touch the database unencrypted (AES-256-GCM),
-    // document URLs only ever stored when https and bounded.
-    const storedData = this.sanitizeDocumentUrls(this.encryptIdentityFields(cleanData));
+    // documents only ever stored as the user's own private-bucket refs.
+    const storedData = this.sanitizeDocumentRefs(this.encryptIdentityFields(cleanData), userId);
 
     if (existing && existing.status === 'rejected') {
       // Allow resubmission after rejection

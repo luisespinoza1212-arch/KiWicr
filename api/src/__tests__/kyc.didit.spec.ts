@@ -5,6 +5,7 @@ import { KYCService } from '../kyc/kyc.service';
 import { DiditProvider } from '../kyc/didit.provider';
 import { PrismaService } from '../prisma/prisma.service';
 import { FieldCipher } from '../security/field-cipher';
+import { KycDocumentStorage } from '../kyc/kyc-document-storage.service';
 
 describe('KYCService — errores de Didit mapeados a 503 (no 500 crudo)', () => {
   let service: KYCService;
@@ -32,6 +33,7 @@ describe('KYCService — errores de Didit mapeados a 503 (no 500 crudo)', () => 
         { provide: PrismaService, useValue: prisma },
         { provide: FieldCipher, useValue: {} },
         { provide: DiditProvider, useValue: didit },
+        { provide: KycDocumentStorage, useValue: { isConfigured: () => true } },
       ],
     }).compile();
 

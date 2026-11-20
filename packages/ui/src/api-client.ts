@@ -1793,6 +1793,50 @@ class ApiClient {
     return this.request<any>('/kyc/status');
   }
 
+  /**
+   * Sube UN documento KYC (multipart `file` + `type`) al almacenamiento
+   * privado. Devuelve { ref } opaco (`kyc://...`) que luego va en
+   * submitKycDocuments. Nunca hay URL pública de una cédula.
+   */
+  async uploadKycDocument(
+    file: File,
+    type: 'idFront' | 'idBack' | 'selfie' | 'license' | 'vehicleRegister' | 'insurance',
+  ): Promise<{ ref: string }> {
+    const fd = new FormData();
+    fd.append('type', type);
+    fd.append('file', file);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    try {
+      let response = await fetch(`${this.baseUrl}/kyc/documents`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.getToken() ?? ''}` },
+        body: fd,
+        signal: controller.signal,
+      });
+      if (response.status === 401 && (await this.refreshSession())) {
+        response = await fetch(`${this.baseUrl}/kyc/documents`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.getToken() ?? ''}` },
+          body: fd,
+          signal: controller.signal,
+        });
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.message || `Error al subir documento (${response.status})`);
+      }
+      return data as { ref: string };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('El servidor tardó demasiado. Revisá tu conexión e intentá de nuevo.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async submitKycDocuments(data: any) {
     return this.request<any>('/kyc/submit', {
       method: 'POST',

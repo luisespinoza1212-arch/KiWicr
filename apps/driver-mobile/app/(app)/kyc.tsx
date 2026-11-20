@@ -1,5 +1,5 @@
 import { Alert, Linking, Text, View } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Screen, Button, Card, EmptyState } from '@kiwi/mobile-ui';
 import { useTranslation } from '@kiwi/i18n';
 import { kycApi } from '../../src/api/kyc';
@@ -7,12 +7,20 @@ import { http } from '../../src/api/client';
 
 const api = kycApi(http);
 
+// La verificación manual (fotos de cédula, selfie, licencia) vive en la PWA:
+// un solo formulario que mantener. El botón la abre en el navegador.
+const DRIVER_WEB_URL = (
+  process.env.EXPO_PUBLIC_DRIVER_WEB_URL || 'https://repartidores.kiwicr.express'
+).replace(/\/+$/, '');
+
 const STATUS_LABEL: Record<
   string,
   'pending' | 'submitted' | 'underReview' | 'approved' | 'rejected'
 > = {
+  not_submitted: 'pending',
   pending: 'pending',
   submitted: 'submitted',
+  documents_submitted: 'submitted',
   under_review: 'underReview',
   approved: 'approved',
   rejected: 'rejected',
@@ -20,7 +28,6 @@ const STATUS_LABEL: Record<
 
 export default function Kyc() {
   const { t } = useTranslation();
-  const qc = useQueryClient();
   const { data, isError, refetch, isRefetching } = useQuery({
     queryKey: ['kyc', 'status'],
     queryFn: () => api.status(),
@@ -30,29 +37,13 @@ export default function Kyc() {
   const key = STATUS_LABEL[raw] ?? 'pending';
   const done = key === 'approved';
 
-  const start = useMutation({
-    mutationFn: () => api.startDidit(),
-    onSuccess: async (res) => {
-      if (res?.url) {
-        try {
-          await Linking.openURL(res.url);
-        } catch {
-          Alert.alert(t.kyc.loadFailed);
-        }
-      }
-      void qc.invalidateQueries({ queryKey: ['kyc', 'status'] });
-    },
-    onError: () => Alert.alert(t.kyc.loadFailed),
-  });
-
-  const refresh = useMutation({
-    mutationFn: () => api.refreshDidit(),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['kyc', 'status'] });
-      void refetch();
-    },
-    onError: () => Alert.alert(t.kyc.loadFailed),
-  });
+  const openWebForm = async () => {
+    try {
+      await Linking.openURL(`${DRIVER_WEB_URL}/kyc`);
+    } catch {
+      Alert.alert(t.kyc.loadFailed);
+    }
+  };
 
   return (
     <Screen>
@@ -74,18 +65,14 @@ export default function Kyc() {
       </View>
 
       <View className="mt-3 gap-2">
-        {!done && (
-          <Button
-            label={t.kyc.verifyNow}
-            loading={start.isPending}
-            onPress={() => start.mutate()}
-          />
+        {!done && key !== 'submitted' && key !== 'underReview' && (
+          <Button label={t.kyc.verifyNow} onPress={() => void openWebForm()} />
         )}
         <Button
           label={t.kyc.refresh}
           variant="secondary"
-          loading={refresh.isPending || isRefetching}
-          onPress={() => refresh.mutate()}
+          loading={isRefetching}
+          onPress={() => void refetch()}
         />
       </View>
     </Screen>

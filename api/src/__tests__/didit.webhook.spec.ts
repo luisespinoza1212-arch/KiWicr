@@ -93,6 +93,7 @@ describe('KYCService.handleDiditWebhook — decisión manual del dashboard', () 
     const { PrismaService } = await import('../prisma/prisma.service');
     const { FieldCipher } = await import('../security/field-cipher');
     const { DiditProvider } = await import('../kyc/didit.provider');
+    const { KycDocumentStorage } = await import('../kyc/kyc-document-storage.service');
 
     const tx: any = {
       kYCVerification: { update: jest.fn(async ({ data }: any) => ({ id: 'v1', ...data })) },
@@ -120,6 +121,7 @@ describe('KYCService.handleDiditWebhook — decisión manual del dashboard', () 
         { provide: PrismaService, useValue: prisma },
         FieldCipher,
         { provide: DiditProvider, useValue: {} },
+        { provide: KycDocumentStorage, useValue: {} },
       ],
     }).compile();
     service = module.get(KYCService);

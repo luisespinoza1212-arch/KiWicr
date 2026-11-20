@@ -7,12 +7,6 @@ test('status GETs /kyc/status', async () => {
   expect(fake.get).toHaveBeenCalledWith('/kyc/status');
 });
 
-test('startDidit POSTs /kyc/didit/start', async () => {
-  await kycApi(fake).startDidit();
-  expect(fake.post).toHaveBeenCalledWith('/kyc/didit/start');
-});
-
-test('refreshDidit POSTs /kyc/didit/refresh', async () => {
-  await kycApi(fake).refreshDidit();
-  expect(fake.post).toHaveBeenCalledWith('/kyc/didit/refresh');
+test('ya no inicia Didit: solo expone el estado', () => {
+  expect(Object.keys(kycApi(fake))).toEqual(['status']);
 });

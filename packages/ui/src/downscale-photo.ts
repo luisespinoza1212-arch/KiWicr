@@ -4,12 +4,13 @@
 /**
  * Fotos de cámara/galería vienen de 3–12 MB y el backend corta en 5 MB
  * (además de que en datos móviles una subida así supera el timeout).
- * Se achican en el navegador (máx 1024px, JPEG 0.82) antes de subir.
+ * Se achican en el navegador (máx `maxDim` px, por defecto 1024; JPEG 0.82)
+ * antes de subir. Documentos KYC usan 2000 para que el texto se lea.
  * Si el navegador no puede decodificarla (ej. HEIC viejo), se devuelve la
  * original y decide el backend. Nunca revienta: ante cualquier fallo
  * devuelve el archivo original.
  */
-export function downscalePhoto(file: File): Promise<File> {
+export function downscalePhoto(file: File, maxDim = 1024): Promise<File> {
   if (!(file instanceof Blob) || file.size <= 1024 * 1024) return Promise.resolve(file);
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
@@ -17,7 +18,7 @@ export function downscalePhoto(file: File): Promise<File> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       try {
-        const scale = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
         const w = Math.max(1, Math.round(img.naturalWidth * scale));
         const h = Math.max(1, Math.round(img.naturalHeight * scale));
         const canvasEl = document.createElement('canvas');

@@ -11,8 +11,12 @@ import {
   Request,
   Headers,
   HttpCode,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,7 +39,33 @@ export class KYCController {
   async getStatus(@Request() req) {
     const userId = req.user.sub ?? req.user.id;
     const userVerification = await this.kycService.getVerificationByUserId(userId);
-    return userVerification || { status: 'not_submitted' };
+    // La UI decide qué ofrecer: botón Didit solo con llave; formulario manual
+    // solo con storage configurado.
+    return {
+      ...(userVerification || { status: 'not_submitted' }),
+      diditEnabled: this.kycService.isDiditEnabled(),
+      manualEnabled: this.kycService.isManualEnabled(),
+    };
+  }
+
+  /**
+   * Sube UN documento (frente, reverso, selfie, licencia, marchamo o seguro)
+   * al bucket privado y devuelve su referencia `kyc://`, que luego se envía en
+   * POST /kyc/submit. Multipart: `file` + `type`. Misma validación estricta
+   * que el resto de imágenes (magic bytes, 5 MB).
+   */
+  @Post('documents')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('driver')
+  @UseInterceptors(
+    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload one KYC document to private storage (returns ref)' })
+  async uploadDocument(@Request() req, @UploadedFile() file: any, @Body('type') type: string) {
+    return this.kycService.uploadDocument(req.user.sub ?? req.user.id, type, file);
   }
 
   @Post('submit')

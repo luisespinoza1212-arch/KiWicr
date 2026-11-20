@@ -71,6 +71,10 @@ interface KYCVerificationProps {
   statusOnly?: boolean;
   /** Pull manual a Didit (el webhook a veces no llega). Sin esto no se muestra. */
   onRefreshStatus?: () => Promise<string | undefined>;
+  /** Error del envío (subida o servidor), mostrado junto al botón. */
+  submitError?: string | null;
+  /** Texto de progreso mientras `loading` (ej. "Subiendo 2 de 4…"). */
+  loadingLabel?: string;
 }
 
 const statusConfig: Record<
@@ -122,6 +126,8 @@ export function KYCVerification({
   loading = false,
   onRefreshStatus,
   statusOnly = false,
+  submitError = null,
+  loadingLabel,
 }: KYCVerificationProps) {
   const [step, setStep] = useState(0);
   // Permite volver al formulario tras un rechazo sin quedar atrapado en la card.
@@ -409,6 +415,7 @@ export function KYCVerification({
           <FileDropZone
             label="Tomar selfie sosteniendo el documento"
             accept="image/*"
+            capture="user"
             icon="🤳"
             hint="Cara visible + documento visible"
             value={formData.selfie}
@@ -463,7 +470,7 @@ export function KYCVerification({
             </div>
             <FileDropZone
               label="Subir foto de la licencia de conducir"
-              accept="image/*,.pdf"
+              accept="image/*"
               icon="🪪"
               hint="Foto o PDF"
               value={formData.license}
@@ -491,7 +498,7 @@ export function KYCVerification({
             </div>
             <FileDropZone
               label="Subir marchamo (registration) del vehículo"
-              accept="image/*,.pdf"
+              accept="image/*"
               icon="🚗"
               hint="Foto o PDF"
               value={formData.vehicleRegister}
@@ -508,7 +515,7 @@ export function KYCVerification({
             )}
             <FileDropZone
               label="Subir seguro del vehículo"
-              accept="image/*,.pdf"
+              accept="image/*"
               icon="🛡️"
               hint="Foto o PDF"
               value={formData.insurance}
@@ -557,7 +564,7 @@ export function KYCVerification({
             </div>
             <FileDropZone
               label="Subir licencia comercial"
-              accept="image/*,.pdf"
+              accept="image/*"
               icon="🏪"
               hint="Foto o PDF"
               value={formData.businessLicense}
@@ -696,12 +703,12 @@ export function KYCVerification({
         {steps[step].content}
       </motion.div>
 
-      {uploadError && (
+      {(uploadError || submitError) && (
         <p
           role="alert"
           className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600 dark:bg-red-900/30"
         >
-          {uploadError}
+          {uploadError || submitError}
         </p>
       )}
 
@@ -747,7 +754,7 @@ export function KYCVerification({
               >
                 <Clock className="h-4 w-4" />
               </motion.span>
-              Enviando...
+              {loadingLabel || 'Enviando...'}
             </span>
           ) : step === steps.length - 1 ? (
             'Enviar Verificación'

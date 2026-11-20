@@ -81,6 +81,39 @@ const MAGIC_BYTES: Array<{ mime: string; test: (b: Buffer) => boolean }> = [
   },
 ];
 
+export type UploadedImageFile = { buffer: Buffer; size: number; originalname?: string };
+
+/** MIME real por magic bytes (null si no es una imagen soportada). */
+export function detectImageMime(buffer: Buffer): string | null {
+  const sniff = Buffer.from(buffer.subarray(0, 12));
+  return MAGIC_BYTES.find((m) => m.test(sniff))?.mime ?? null;
+}
+
+/**
+ * Validación estricta compartida (productos, perfiles, KYC): vacío → 400,
+ * >5 MB → 413, formato no soportado por magic bytes → 400. Devuelve el MIME.
+ */
+export function assertImageFile(file: UploadedImageFile): string {
+  if (!file || !Buffer.isBuffer(file.buffer) || file.size === 0) {
+    throw new BadRequestException('Archivo vacío o inválido');
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    throw new PayloadTooLargeException('Imagen demasiado grande (máx 5 MB)');
+  }
+  const mime = detectImageMime(file.buffer);
+  if (!mime) {
+    throw new BadRequestException('Formato no soportado. Usa JPG, PNG, WEBP, GIF o HEIC.');
+  }
+  return mime;
+}
+
+/** Entrada lista para sharp: HEIC (Samsung/iPhone) se convierte a JPEG antes. */
+export async function decodeToSharpInput(buffer: Buffer, mime: string): Promise<Buffer> {
+  if (mime !== 'image/heic') return buffer;
+  const jpeg = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
+  return Buffer.from(jpeg as ArrayBuffer);
+}
+
 @Injectable()
 export class ImageUploadService {
   private readonly logger = new Logger(ImageUploadService.name);
@@ -171,26 +204,15 @@ export class ImageUploadService {
       );
     }
 
-    if (!file || !Buffer.isBuffer(file.buffer) || file.size === 0) {
-      throw new BadRequestException('Archivo vacío o inválido');
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      throw new PayloadTooLargeException('Imagen demasiado grande (máx 5 MB)');
-    }
-
-    const sniff = Buffer.from(file.buffer.subarray(0, 12));
-    const match = MAGIC_BYTES.find((m) => m.test(sniff));
-    if (!match) {
-      throw new BadRequestException('Formato no soportado. Usa JPG, PNG, WEBP, GIF o HEIC.');
-    }
+    const mime = assertImageFile(file);
 
     // Normalizar: si los bytes dicen "imagen" pero no se puede decodificar,
     // es un archivo dañado o disfrazado → 400 (culpa del cliente, no nuestra).
     let webp: Buffer;
     try {
-      webp = await this.normalize(file.buffer, match.mime);
+      webp = await this.normalize(file.buffer, mime);
     } catch (err: any) {
-      this.logger.warn(`Imagen ilegible (${match.mime}): ${err?.message ?? err}`);
+      this.logger.warn(`Imagen ilegible (${mime}): ${err?.message ?? err}`);
       throw new BadRequestException('No se pudo leer la imagen. Prueba con otra foto.');
     }
 
@@ -208,11 +230,7 @@ export class ImageUploadService {
 
   /** Decodifica (HEIC vía heic-convert) y entrega un webp 512×512 cover. */
   async normalize(buffer: Buffer, mime: string): Promise<Buffer> {
-    let input = buffer;
-    if (mime === 'image/heic') {
-      const jpeg = await heicConvert({ buffer, format: 'JPEG', quality: 0.9 });
-      input = Buffer.from(jpeg as ArrayBuffer);
-    }
+    const input = await decodeToSharpInput(buffer, mime);
     return sharp(input, { animated: false })
       .rotate() // respeta la orientación EXIF de fotos de celular
       .resize(OUTPUT_SIZE, OUTPUT_SIZE, { fit: 'cover' })
