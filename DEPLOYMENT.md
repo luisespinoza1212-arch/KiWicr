@@ -4,7 +4,7 @@
 
 | Servicio                  | Plataforma        | URL                                  |
 | ------------------------- | ----------------- | ------------------------------------ |
-| 🗄️ API (NestJS)           | Render            | https://kiwi-api-fe54.onrender.com   |
+| 🗄️ API (NestJS)           | Render            | https://kiwi-api-wpbv.onrender.com   |
 | 🍃 Dashboard Comerciantes | Vercel            | https://negocios.kiwicr.express      |
 | 📱 Menú QR Clientes       | Vercel            | https://www.kiwicr.express           |
 | 🛵 App Repartidores       | Vercel            | https://repartidores.kiwicr.express  |
@@ -17,7 +17,7 @@
 
 Cada servicio se despliega automáticamente al hacer **push a `main`**:
 
-- **API**: Render detecta el push y ejecuta `npm install && npm run build` + `npm run start:prod` (Build Command y Start Command configurados en el dashboard de Render, Root Directory `api`).
+- **API**: Render detecta el push y ejecuta `npm install --include=dev && npm run build` + `npm run start:prod` (Build Command y Start Command configurados en el dashboard de Render, Root Directory `api`).
 - **Frontends**: Vercel despliega cada app desde su Root Directory (`apps/web`, `apps/client`, `apps/driver`) con su propio `vercel.json` (incluye CSP, HSTS y demás security headers).
 
 ### Deploy manual de los frontends
@@ -85,7 +85,7 @@ DIDIT_WORKFLOW_ID="..."                      # workflow KYC de esa misma cuenta
 En los frontends (Vercel → Project → Settings → Environment Variables):
 
 ```bash
-NEXT_PUBLIC_API_URL="https://kiwi-api-fe54.onrender.com/api"
+NEXT_PUBLIC_API_URL="https://kiwi-api-wpbv.onrender.com/api"
 ```
 
 ### 🔔 Push (Firebase, driver + comercio)
@@ -124,7 +124,7 @@ Cada app define sus headers en su propio `vercel.json` (CSP con allowlist por ap
 
 ```bash
 # API viva
-curl -s https://kiwi-api-fe54.onrender.com/api/payments/methods -o /dev/null -w "%{http_code}\n"
+curl -s https://kiwi-api-wpbv.onrender.com/api/payments/methods -o /dev/null -w "%{http_code}\n"
 
 # Headers de seguridad aplicados
 curl -sI https://negocios.kiwicr.express | grep -i strict-transport
@@ -135,14 +135,14 @@ curl -sI https://kiwi-merchant.vercel.app | grep -i location
 # Drift de esquema: detecta si el Prisma Client desplegado espera columnas
 # que la BD de producción aún no tiene (causa clásica de 500 en rutas de datos
 # con P2022 mientras la API arranca "bien")
-curl -s https://kiwi-api-fe54.onrender.com/api/health/schema
+curl -s https://kiwi-api-wpbv.onrender.com/api/health/schema
 
 # Prueba E2E completa (login, menú, ciclo de pedidos)
-node scripts/e2e-prod-flow.mjs https://kiwi-api-fe54.onrender.com/api
+node scripts/e2e-prod-flow.mjs https://kiwi-api-wpbv.onrender.com/api
 
 # Transporte de sockets: ¿está montado socket.io de verdad?
 # (falla con 503 en /api/health y detalle en /api/health/socket si no)
-curl -s https://kiwi-api-fe54.onrender.com/api/health/socket
+curl -s https://kiwi-api-wpbv.onrender.com/api/health/socket
 ```
 
 ---

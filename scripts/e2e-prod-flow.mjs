@@ -12,12 +12,12 @@
  * Usage:
  *   node scripts/e2e-prod-flow.mjs [baseUrl]
  *
- * Default baseUrl: https://kiwi-api-fe54.onrender.com
+ * Default baseUrl: https://kiwi-api-wpbv.onrender.com
  * Credentials default to api/prisma/seed.ts demo data; override via env:
  *   E2E_PASSWORD, E2E_MERCHANT_EMAIL, E2E_DRIVER_EMAIL, E2E_DRIVER2_EMAIL
  */
 
-const BASE = (process.argv[2] || 'https://kiwi-api-fe54.onrender.com').replace(/\/$/, '');
+const BASE = (process.argv[2] || 'https://kiwi-api-wpbv.onrender.com').replace(/\/$/, '');
 const API = `${BASE}/api`;
 const PASSWORD = process.env.E2E_PASSWORD || '123456';
 const MERCHANT = process.env.E2E_MERCHANT_EMAIL || 'luis@kiwi.app';
